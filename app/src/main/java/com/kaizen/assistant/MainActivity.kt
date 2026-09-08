@@ -228,7 +228,12 @@ class MainActivity : AppCompatActivity() {
         appendLog("You", "[shows Kaizen the camera view]")
         setStatus("ANALYZING")
         CoroutineScope(Dispatchers.Main).launch {
-            val reply = ClaudeClient.askVision(base64, apiKey)
+            val reply = object ClaudeClient {
+    suspend fun askVision(imageBase64: String, apiKey: String): String {
+        // Add your network request code here
+    }
+            }
+            
             appendLog("Kaizen", reply)
             speak(reply)
             setStatus("STANDBY")
