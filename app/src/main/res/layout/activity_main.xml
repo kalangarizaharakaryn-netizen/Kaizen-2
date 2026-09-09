@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#04070C"
+    android:background="@drawable/app_background"
     android:padding="16dp">
 
     <WebView
@@ -43,12 +44,14 @@
             android:textColorHint="#5F89A3" />
 
         <Button
+            style="@style/KaizenIconButton"
             android:id="@+id/micButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="\uD83C\uDFA4" />
 
         <Button
+            style="@style/KaizenIconButton"
             android:id="@+id/sendButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -62,12 +65,24 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <Button android:id="@+id/torchButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDD26" />
-        <Button android:id="@+id/locationButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDCCD" />
-        <Button android:id="@+id/btButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDD35" />
-        <Button android:id="@+id/calendarButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDCC5" />
-        <Button android:id="@+id/cameraButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDCF7" />
-        <Button android:id="@+id/settingsButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\u2699" />
+        <Button
+            style="@style/KaizenIconButton"
+            android:id="@+id/torchButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDD26" />
+        <Button
+            style="@style/KaizenIconButton"
+            android:id="@+id/locationButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDCCD" />
+        <Button
+            style="@style/KaizenIconButton"
+            android:id="@+id/btButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDD35" />
+        <Button
+            style="@style/KaizenIconButton"
+            android:id="@+id/calendarButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDCC5" />
+        <Button
+            style="@style/KaizenIconButton"
+            android:id="@+id/cameraButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\uD83D\uDCF7" />
+        <Button
+            style="@style/KaizenIconButton"
+            android:id="@+id/settingsButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="\u2699" />
     </LinearLayout>
 
 </LinearLayout>
