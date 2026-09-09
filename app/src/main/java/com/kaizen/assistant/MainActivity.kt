@@ -11,13 +11,17 @@ import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Base64
+import android.webkit.WebView
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +37,10 @@ import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var ringWebView: WebView
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pulseRunnable: Runnable? = null
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var tts: TextToSpeech
     private lateinit var speechRecognizer: SpeechRecognizer
@@ -40,7 +48,6 @@ class MainActivity : AppCompatActivity() {
     private var userLat: Double? = null
     private var userLon: Double? = null
 
-    // (role, content) pairs, oldest first — sent to Claude for conversation memory.
     private val conversation = mutableListOf<Pair<String, String>>()
 
     private val recognizerIntent by lazy {
@@ -66,6 +73,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        ringWebView = binding.ringWebView
+        ringWebView.settings.javaScriptEnabled = true
+        ringWebView.loadUrl("file:///android_asset/kaizen_ring.html")
+
         permissionLauncher.launch(
             arrayOf(
                 Manifest.permission.RECORD_AUDIO,
@@ -79,6 +90,21 @@ class MainActivity : AppCompatActivity() {
                 tts.language = Locale.UK
                 tts.setPitch(0.85f)
                 tts.setSpeechRate(1.0f)
+                tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        runOnUiThread { setStatus("RESPONDING") }
+                        startSpeakingPulse()
+                    }
+                    override fun onDone(utteranceId: String?) {
+                        runOnUiThread { setStatus("STANDBY") }
+                        stopSpeakingPulse()
+                    }
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        runOnUiThread { setStatus("STANDBY") }
+                        stopSpeakingPulse()
+                    }
+                })
             }
         }
 
@@ -86,7 +112,10 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {}
             override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onRmsChanged(rmsdB: Float) {
+                val normalized = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+                setRingLevel(normalized)
+            }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { setStatus("PROCESSING") }
             override fun onError(error: Int) {
@@ -124,8 +153,41 @@ class MainActivity : AppCompatActivity() {
         speak(greeting)
     }
 
-    private fun setStatus(s: String) { binding.statusText.text = s }
-    private fun speak(text: String) { tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) }
+    private fun setStatus(s: String) {
+        val mode = when (s.uppercase()) {
+            "LISTENING" -> "listening"
+            "PROCESSING", "THINKING", "ANALYZING" -> "thinking"
+            "RESPONDING" -> "speaking"
+            else -> "standby"
+        }
+        ringWebView.evaluateJavascript("kaizenSetMode('$mode')", null)
+    }
+
+    private fun setRingLevel(v: Float) {
+        ringWebView.evaluateJavascript("kaizenSetLevel($v)", null)
+    }
+
+    private fun startSpeakingPulse() {
+        stopSpeakingPulse()
+        pulseRunnable = object : Runnable {
+            var phase = 0.0
+            override fun run() {
+                phase += 0.3
+                val level = (((Math.sin(phase) + 1) / 2) * 0.7 + 0.15).toFloat()
+                setRingLevel(level)
+                mainHandler.postDelayed(this, 60)
+            }
+        }
+        mainHandler.post(pulseRunnable!!)
+    }
+
+    private fun stopSpeakingPulse() {
+        pulseRunnable?.let { mainHandler.removeCallbacks(it) }
+        pulseRunnable = null
+        setRingLevel(0f)
+    }
+
+    private fun speak(text: String) { tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kaizen_utt") }
     private fun appendLog(who: String, text: String) { binding.logText.append("\n$who: $text\n") }
 
     private fun handleCommand(text: String) {
@@ -281,6 +343,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        stopSpeakingPulse()
         tts.shutdown()
         speechRecognizer.destroy()
         super.onDestroy()
