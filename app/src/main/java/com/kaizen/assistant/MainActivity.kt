@@ -128,17 +128,10 @@ class MainActivity : AppCompatActivity() {
     private fun speak(text: String) { tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) }
     private fun appendLog(who: String, text: String) { binding.logText.append("\n$who: $text\n") }
 
-    /**
-     * Offline-first routing: math, app control, and greetings are all handled
-     * on-device below and never touch the network. Only when none of those
-     * match does this reach for the cloud brain — and even then, it checks
-     * connectivity first and says so plainly rather than hanging.
-     */
     private fun handleCommand(text: String) {
         appendLog("You", text)
         setStatus("PROCESSING")
 
-        // 1. Local arithmetic — no network involved at all.
         if (MathEval.looksLikeMath(text)) {
             val result = MathEval.evaluate(text)
             if (result != null) {
@@ -148,7 +141,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Local app launching — PackageManager only, no network.
         Regex("^open (.+)", RegexOption.IGNORE_CASE).find(text)?.let { m ->
             val appName = m.groupValues[1]
             if (AppLauncher.tryLaunch(this, appName)) {
@@ -158,7 +150,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 3. Local dialer — opens the phone app pre-filled, no permission needed.
         Regex("^call (.+)", RegexOption.IGNORE_CASE).find(text)?.let { m ->
             startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${m.groupValues[1]}")))
             val out = "Dialer ready for ${m.groupValues[1]}, ma'am."
@@ -166,13 +157,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 4. Local canned replies for greetings/small talk — no network.
         LocalReplies.tryReply(text)?.let { reply ->
             appendLog("Kaizen", reply); speak(reply); setStatus("STANDBY")
             return
         }
 
-        // 5. Everything else genuinely needs the cloud brain — check first, don't just hang.
         if (!NetworkUtils.isOnline(this)) {
             val out = "I need a connection for that, ma'am — I've brought up your network settings."
             appendLog("Kaizen", out)
@@ -202,7 +191,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Opens the quick Wi-Fi/mobile-data panel on Android 10+, falling back to full wireless settings on older versions. */
     private fun openConnectivitySettings() {
         try {
             startActivity(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))
@@ -228,12 +216,7 @@ class MainActivity : AppCompatActivity() {
         appendLog("You", "[shows Kaizen the camera view]")
         setStatus("ANALYZING")
         CoroutineScope(Dispatchers.Main).launch {
-            val reply = object ClaudeClient {
-    suspend fun askVision(imageBase64: String, apiKey: String): String {
-        // Add your network request code here
-    }
-            }
-            
+            val reply = ClaudeClient.askVision(base64, apiKey)
             appendLog("Kaizen", reply)
             speak(reply)
             setStatus("STANDBY")
