@@ -6,26 +6,12 @@
     android:background="#04070C"
     android:padding="16dp">
 
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="KAIZEN"
-        android:textColor="#4FD8FF"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.2" />
-
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="12dp"
-        android:text="STANDBY"
-        android:textColor="#FFB347"
-        android:textSize="12sp" />
+    <WebView
+        android:id="@+id/ringWebView"
+        android:layout_width="match_parent"
+        android:layout_height="260dp"
+        android:layout_marginBottom="8dp"
+        android:background="#04070C" />
 
     <ScrollView
         android:layout_width="match_parent"
