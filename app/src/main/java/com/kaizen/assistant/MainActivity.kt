@@ -195,7 +195,9 @@ class MainActivity : AppCompatActivity() {
     private fun stopSpeakingPulse() {
         pulseRunnable?.let { mainHandler.removeCallbacks(it) }
         pulseRunnable = null
-        setRingLevel(0f)
+        // TTS callbacks fire on a background thread — WebView calls MUST happen on the
+        // main thread, so this has to be posted, not called directly, or it crashes.
+        mainHandler.post { setRingLevel(0f) }
     }
 
     private fun speak(text: String) { tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kaizen_utt") }
