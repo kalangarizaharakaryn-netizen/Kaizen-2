@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -77,13 +78,16 @@ class MainActivity : AppCompatActivity() {
         ringWebView.settings.javaScriptEnabled = true
         ringWebView.loadUrl("file:///android_asset/kaizen_ring.html")
 
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.CAMERA,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
+        val permsToRequest = mutableListOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+            permsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
+        }
+        permissionLauncher.launch(permsToRequest.toTypedArray())
 
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -131,6 +135,13 @@ class MainActivity : AppCompatActivity() {
         })
 
         binding.micButton.setOnClickListener {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                appendLog("Kaizen", "I need microphone permission, ma'am — requesting it now.")
+                permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+                return@setOnClickListener
+            }
             setStatus("LISTENING")
             speechRecognizer.startListening(recognizerIntent)
         }
@@ -141,9 +152,9 @@ class MainActivity : AppCompatActivity() {
             if (text.isNotBlank()) handleCommand(text)
         }
 
-        binding.torchButton.setOnClickListener { Hardware.toggleTorch(this) }
+        binding.torchButton.setOnClickListener { appendLog("Kaizen", Hardware.toggleTorch(this)) }
         binding.locationButton.setOnClickListener { fetchLocation() }
-        binding.btButton.setOnClickListener { Hardware.requestEnableBluetooth(this, enableBtLauncher) }
+        binding.btButton.setOnClickListener { appendLog("Kaizen", Hardware.requestEnableBluetooth(this, enableBtLauncher)) }
         binding.calendarButton.setOnClickListener { showAddEventDialog() }
         binding.cameraButton.setOnClickListener { takePictureLauncher.launch(null) }
         binding.settingsButton.setOnClickListener { showApiKeyDialog() }
