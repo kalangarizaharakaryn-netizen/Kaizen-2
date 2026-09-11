@@ -13,6 +13,7 @@ import android.hardware.camera2.CameraManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import androidx.activity.result.ActivityResultLauncher
 import androidx.core.app.ActivityCompat
 
@@ -71,6 +72,32 @@ object Hardware {
             "Bluetooth permission was denied, ma'am."
         } catch (e: Exception) {
             "Bluetooth control failed: ${e.message}"
+        }
+    }
+
+    /** Android has not allowed apps to silently disable Bluetooth since API 33 — this opens
+     *  the settings screen so the user can do it themselves, rather than pretending to. */
+    fun openBluetoothSettingsForOff(context: Context): String {
+        return try {
+            context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+            "Android doesn't let apps switch Bluetooth off directly, ma'am — I've opened the settings for you."
+        } catch (e: Exception) {
+            "Couldn't open Bluetooth settings: ${e.message}"
+        }
+    }
+
+    /** Android has not allowed apps to toggle Wi-Fi directly since API 29 — this opens the
+     *  quick panel (or settings, on older versions) so the user can flip it themselves. */
+    fun openWifiSettings(context: Context): String {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.startActivity(Intent(Settings.Panel.ACTION_WIFI))
+            } else {
+                context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+            }
+            "Android doesn't let apps switch Wi-Fi directly anymore, ma'am — I've opened the panel for you."
+        } catch (e: Exception) {
+            "Couldn't open Wi-Fi settings: ${e.message}"
         }
     }
 }
