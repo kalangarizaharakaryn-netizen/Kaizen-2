@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
@@ -48,7 +49,9 @@ class MainActivity : AppCompatActivity() {
         mutableListOf<Pair<String, String>>()
 
     private val mainHandler =
-        android.os.Handler(android.os.Looper.getMainLooper())
+        android.os.Handler(
+            android.os.Looper.getMainLooper()
+        )
 
     private var pulseRunnable: Runnable? = null
 
@@ -56,6 +59,7 @@ class MainActivity : AppCompatActivity() {
         Intent(
             RecognizerIntent.ACTION_RECOGNIZE_SPEECH
         ).apply {
+
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
@@ -101,7 +105,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         binding =
-            ActivityMainBinding.inflate(layoutInflater)
+            ActivityMainBinding.inflate(
+                layoutInflater
+            )
 
         setContentView(binding.root)
 
@@ -256,6 +262,7 @@ class MainActivity : AppCompatActivity() {
                     )
 
                     tts.setOnUtteranceProgressListener(
+
                         object :
                             UtteranceProgressListener() {
 
@@ -298,9 +305,7 @@ class MainActivity : AppCompatActivity() {
 
                                     setStatus(
                                         "STANDBY"
-                                    )
-
-                                    stopSpeakingPulse()
+                                         stopSpeakingPulse()
                                 }
                             }
                         }
@@ -642,6 +647,54 @@ class MainActivity : AppCompatActivity() {
         )
 
         // =====================================================
+        // DATE AND TIME
+        // =====================================================
+
+        if (
+            Regex(
+                ".*(date and time|time and date).*",
+                RegexOption.IGNORE_CASE
+            ).matches(command)
+        ) {
+
+            tellDateAndTime()
+            return
+        }
+
+        if (
+            Regex(
+                ".*(what time|tell me the time|current time|time right now|time is it).*",
+                RegexOption.IGNORE_CASE
+            ).matches(command)
+        ) {
+
+            tellTime()
+            return
+        }
+
+        if (
+            Regex(
+                ".*(what('?s| is) the date|today('?s)? date|what is today's date|tell me the date|current date).*",
+                RegexOption.IGNORE_CASE
+            ).matches(command)
+        ) {
+
+            tellDate()
+            return
+        }
+
+        if (
+            Regex(
+                ".*(what day is it|what day is today|which day is it|tell me the day).*",
+                RegexOption.IGNORE_CASE
+            ).matches(command)
+        ) {
+
+            tellDay()
+            return
+        }
+
+        // =====================================================
         // MATH
         // =====================================================
 
@@ -678,11 +731,8 @@ class MainActivity : AppCompatActivity() {
                             result.toString()
                         }
 
-                    val output =
-                        "$command = $formatted"
-
                     respond(
-                        output
+                        "$command = $formatted"
                     )
 
                     return
@@ -693,6 +743,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         // =====================================================
+        // CAMERA
+        // =====================================================
+
+        if (
+            Regex(
+                "^(open|start|use|activate|take) (the )?(camera|camera app|a picture|photo)",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(command)
+        ) {
+
+            openCamera()
+            return
+        }
+
+        // =====================================================
         // OPEN APPS
         // =====================================================
 
@@ -700,9 +765,7 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^open (.+)",
                 RegexOption.IGNORE_CASE
-            ).find(
-                command
-            )
+            ).find(command)
 
         if (
             openMatch != null
@@ -747,18 +810,13 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(turn off|disable) (the )?bluetooth",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
-            val output =
+            respond(
                 Hardware.openBluetoothSettingsForOff(
                     this
                 )
-
-            respond(
-                output
             )
 
             return
@@ -768,19 +826,14 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(turn on|enable|check) (the )?bluetooth",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
-            val output =
+            respond(
                 Hardware.requestEnableBluetooth(
                     this,
                     enableBtLauncher
                 )
-
-            respond(
-                output
             )
 
             return
@@ -794,9 +847,7 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(turn on|turn off|enable|disable|check|toggle) (the )?wi-?fi",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
             respond(
@@ -816,9 +867,7 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(turn on|turn off|toggle) (the )?(torch|flashlight)",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
             respond(
@@ -831,24 +880,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // =====================================================
-        // CAMERA
-        // =====================================================
-
-        if (
-            Regex(
-                "^(open|start|use|activate|take) (the )?(camera|camera app|a picture|photo)",
-                RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
-        ) {
-
-            openCamera()
-
-            return
-        }
-
-        // =====================================================
         // LOCATION
         // =====================================================
 
@@ -856,13 +887,10 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(where am i|check my location|get my location|find my location|what is my location)",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
             fetchLocation()
-
             return
         }
 
@@ -874,13 +902,10 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(add|create|schedule|set) (a |an )?(calendar )?event",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
             showAddEventDialog()
-
             return
         }
 
@@ -892,9 +917,7 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(open|show) (the )?settings",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
             try {
@@ -918,7 +941,6 @@ class MainActivity : AppCompatActivity() {
 
             return
         }
-
         // =====================================================
         // INTERNET SETTINGS
         // =====================================================
@@ -927,9 +949,7 @@ class MainActivity : AppCompatActivity() {
             Regex(
                 "^(open|show) (the )?(internet|network|connection) settings",
                 RegexOption.IGNORE_CASE
-            ).containsMatchIn(
-                command
-            )
+            ).containsMatchIn(command)
         ) {
 
             openConnectivitySettings()
@@ -951,10 +971,7 @@ class MainActivity : AppCompatActivity() {
                 .tryReply(command)
                 ?.let { reply ->
 
-                    respond(
-                        reply
-                    )
-
+                    respond(reply)
                     return
                 }
 
@@ -976,7 +993,6 @@ class MainActivity : AppCompatActivity() {
             )
 
             openConnectivitySettings()
-
             return
         }
 
@@ -1038,19 +1054,103 @@ class MainActivity : AppCompatActivity() {
                         reply
                 )
 
-                respond(
-                    reply
-                )
+                respond(reply)
 
-            } catch (
-                e: Exception
-            ) {
+            } catch (_: Exception) {
 
                 respond(
                     "I'm having trouble reaching my cloud brain, ma'am."
                 )
             }
         }
+    }
+
+    // =========================================================
+    // TIME
+    // =========================================================
+
+    private fun tellTime() {
+
+        val format =
+            SimpleDateFormat(
+                "h:mm a",
+                Locale.UK
+            )
+
+        val time =
+            format.format(
+                Calendar.getInstance().time
+            )
+
+        respond(
+            "The current time is $time, ma'am."
+        )
+    }
+
+    // =========================================================
+    // DATE
+    // =========================================================
+
+    private fun tellDate() {
+
+        val format =
+            SimpleDateFormat(
+                "d MMMM yyyy",
+                Locale.UK
+            )
+
+        val date =
+            format.format(
+                Calendar.getInstance().time
+            )
+
+        respond(
+            "Today is $date, ma'am."
+        )
+    }
+
+    // =========================================================
+    // DAY
+    // =========================================================
+
+    private fun tellDay() {
+
+        val format =
+            SimpleDateFormat(
+                "EEEE",
+                Locale.UK
+            )
+
+        val day =
+            format.format(
+                Calendar.getInstance().time
+            )
+
+        respond(
+            "Today is $day, ma'am."
+        )
+    }
+
+    // =========================================================
+    // DATE AND TIME
+    // =========================================================
+
+    private fun tellDateAndTime() {
+
+        val format =
+            SimpleDateFormat(
+                "EEEE, d MMMM yyyy 'at' h:mm a",
+                Locale.UK
+            )
+
+        val dateTime =
+            format.format(
+                Calendar.getInstance().time
+            )
+
+        respond(
+            "It is $dateTime, ma'am."
+        )
     }
 
     // =========================================================
@@ -1066,9 +1166,7 @@ class MainActivity : AppCompatActivity() {
             text
         )
 
-        speak(
-            text
-        )
+        speak(text)
 
         setStatus(
             "STANDBY"
@@ -1160,7 +1258,6 @@ class MainActivity : AppCompatActivity() {
             )
 
             openConnectivitySettings()
-
             return
         }
 
@@ -1218,9 +1315,7 @@ class MainActivity : AppCompatActivity() {
                             apiKey
                         )
 
-                    respond(
-                        reply
-                    )
+                    respond(reply)
 
                 } catch (_: Exception) {
 
@@ -1588,4 +1683,4 @@ class MainActivity : AppCompatActivity() {
 
         super.onDestroy()
     }
-}
+                        }
