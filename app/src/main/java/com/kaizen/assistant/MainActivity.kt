@@ -9,11 +9,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.location.Location
 import android.location.LocationManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.Settings
 import android.speech.RecognitionListener
@@ -22,11 +19,11 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Base64
-import android.util.Log
 import android.webkit.WebView
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.kaizen.assistant.databinding.ActivityMainBinding
@@ -43,27 +40,22 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ringWebView: WebView
     private lateinit var tts: TextToSpeech
     private lateinit var speechRecognizer: SpeechRecognizer
-    private lateinit var kaizenMemory: KaizenMemory
-
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    private var pulseRunnable: Runnable? = null
 
     private var userLat: Double? = null
     private var userLon: Double? = null
 
-    /*
-     * Conversation history.
-     * This stays alive while the current app session is open.
-     */
     private val conversation =
         mutableListOf<Pair<String, String>>()
+
+    private val mainHandler =
+        android.os.Handler(android.os.Looper.getMainLooper())
+
+    private var pulseRunnable: Runnable? = null
 
     private val recognizerIntent by lazy {
         Intent(
             RecognizerIntent.ACTION_RECOGNIZE_SPEECH
         ).apply {
-
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
@@ -85,7 +77,6 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) {
-            // Permissions handled when individual features are used.
         }
 
     private val takePictureLauncher =
@@ -102,14 +93,11 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) {
-            appendLog(
-                "Kaizen",
-                "Bluetooth settings returned, ma'am."
-            )
         }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
         super.onCreate(savedInstanceState)
 
         binding =
@@ -117,63 +105,114 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(binding.root)
 
-        /*
-         * Persistent Kaizen memory.
-         */
-        kaizenMemory = KaizenMemory(this)
+        setupRing()
+        setupPermissions()
+        setupTextToSpeech()
+        setupSpeechRecognizer()
+        setupButtons()
 
-        /*
-         * Kaizen visual ring.
-         */
-        ringWebView = binding.ringWebView
+        val greeting =
+            "Kaizen online, ma'am. Systems nominal."
 
-        ringWebView.settings.javaScriptEnabled = true
+        appendLog(
+            "Kaizen",
+            greeting
+        )
+
+        speak(greeting)
+    }
+
+    // =========================================================
+    // RING
+    // =========================================================
+
+    private fun setupRing() {
+
+        ringWebView =
+            binding.ringWebView
+
+        ringWebView.settings.javaScriptEnabled =
+            true
 
         ringWebView.loadUrl(
             "file:///android_asset/kaizen_ring.html"
         )
+    }
 
-        requestPermissions()
+    private fun setStatus(
+        status: String
+    ) {
 
-        setupTextToSpeech()
+        val mode =
+            when (status.uppercase()) {
 
-        setupSpeechRecognizer()
+                "LISTENING" ->
+                    "listening"
 
-        setupButtons()
+                "PROCESSING",
+                "THINKING",
+                "ANALYZING" ->
+                    "thinking"
 
-        /*
-         * Initial greeting.
-         */
-        val greeting =
-            "Kaizen online, ma'am. Systems nominal. How may I assist you?"
+                "RESPONDING" ->
+                    "speaking"
 
-        appendLog("Kaizen", greeting)
+                else ->
+                    "standby"
+            }
 
-        speak(greeting)
+        runOnUiThread {
+
+            try {
+
+                ringWebView.evaluateJavascript(
+                    "kaizenSetMode('$mode')",
+                    null
+                )
+
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun setRingLevel(
+        value: Float
+    ) {
+
+        runOnUiThread {
+
+            try {
+
+                ringWebView.evaluateJavascript(
+                    "kaizenSetLevel($value)",
+                    null
+                )
+
+            } catch (_: Exception) {
+            }
+        }
     }
 
     // =========================================================
     // PERMISSIONS
     // =========================================================
 
-    private fun requestPermissions() {
+    private fun setupPermissions() {
 
         val permissions =
-            mutableListOf<String>()
+            mutableListOf(
 
-        permissions.add(
-            Manifest.permission.RECORD_AUDIO
-        )
+                Manifest.permission.RECORD_AUDIO,
 
-        permissions.add(
-            Manifest.permission.CAMERA
-        )
+                Manifest.permission.CAMERA,
 
-        permissions.add(
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.S
+        ) {
 
             permissions.add(
                 Manifest.permission.BLUETOOTH_CONNECT
@@ -195,74 +234,88 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupTextToSpeech() {
 
-        tts = TextToSpeech(this) { status ->
+        tts =
+            TextToSpeech(
+                this
+            ) { status ->
 
-            if (status == TextToSpeech.SUCCESS) {
+                if (
+                    status ==
+                    TextToSpeech.SUCCESS
+                ) {
 
-                try {
+                    tts.language =
+                        Locale.UK
 
-                    tts.language = Locale.UK
+                    tts.setPitch(
+                        0.85f
+                    )
 
-                    tts.setPitch(0.85f)
+                    tts.setSpeechRate(
+                        1.0f
+                    )
 
-                    tts.setSpeechRate(1.0f)
+                    tts.setOnUtteranceProgressListener(
+                        object :
+                            UtteranceProgressListener() {
 
-                } catch (e: Exception) {
+                            override fun onStart(
+                                utteranceId: String?
+                            ) {
 
-                    Log.e(
-                        "KAIZEN",
-                        "TTS setup error",
-                        e
+                                runOnUiThread {
+
+                                    setStatus(
+                                        "RESPONDING"
+                                    )
+
+                                    startSpeakingPulse()
+                                }
+                            }
+
+                            override fun onDone(
+                                utteranceId: String?
+                            ) {
+
+                                runOnUiThread {
+
+                                    setStatus(
+                                        "STANDBY"
+                                    )
+
+                                    stopSpeakingPulse()
+                                }
+                            }
+
+                            @Deprecated(
+                                "Deprecated in Java"
+                            )
+                            override fun onError(
+                                utteranceId: String?
+                            ) {
+
+                                runOnUiThread {
+
+                                    setStatus(
+                                        "STANDBY"
+                                    )
+
+                                    stopSpeakingPulse()
+                                }
+                            }
+                        }
                     )
                 }
-
-                tts.setOnUtteranceProgressListener(
-                    object : UtteranceProgressListener() {
-
-                        override fun onStart(
-                            utteranceId: String?
-                        ) {
-
-                            runOnUiThread {
-
-                                setStatus("RESPONDING")
-
-                                startSpeakingPulse()
-                            }
-                        }
-
-                        override fun onDone(
-                            utteranceId: String?
-                        ) {
-
-                            runOnUiThread {
-
-                                stopSpeakingPulse()
-
-                                setStatus("STANDBY")
-                            }
-                        }
-
-                        override fun onError(
-                            utteranceId: String?
-                        ) {
-
-                            runOnUiThread {
-
-                                stopSpeakingPulse()
-
-                                setStatus("STANDBY")
-                            }
-                        }
-                    }
-                )
             }
-        }
     }
 
-    private fun speak(text: String) {
+    private fun speak(
+        text: String
+    ) {
 
-        if (!::tts.isInitialized) {
+        if (
+            !::tts.isInitialized
+        ) {
             return
         }
 
@@ -272,15 +325,75 @@ class MainActivity : AppCompatActivity() {
                 text,
                 TextToSpeech.QUEUE_FLUSH,
                 null,
-                "kaizen_${System.currentTimeMillis()}"
+                "kaizen_utterance"
             )
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
+        }
+    }
 
-            Log.e(
-                "KAIZEN",
-                "Speech error",
-                e
+    // =========================================================
+    // SPEAKING ANIMATION
+    // =========================================================
+
+    private fun startSpeakingPulse() {
+
+        stopSpeakingPulse()
+
+        pulseRunnable =
+            object : Runnable {
+
+                var phase =
+                    0.0
+
+                override fun run() {
+
+                    phase +=
+                        0.3
+
+                    val level =
+                        (
+                            (
+                                (
+                                    Math.sin(
+                                        phase
+                                    ) + 1
+                                ) / 2
+                            ) * 0.7 + 0.15
+                        ).toFloat()
+
+                    setRingLevel(
+                        level
+                    )
+
+                    mainHandler.postDelayed(
+                        this,
+                        60
+                    )
+                }
+            }
+
+        mainHandler.post(
+            pulseRunnable!!
+        )
+    }
+
+    private fun stopSpeakingPulse() {
+
+        pulseRunnable?.let {
+
+            mainHandler.removeCallbacks(
+                it
+            )
+        }
+
+        pulseRunnable =
+            null
+
+        mainHandler.post {
+
+            setRingLevel(
+                0f
             )
         }
     }
@@ -292,30 +405,38 @@ class MainActivity : AppCompatActivity() {
     private fun setupSpeechRecognizer() {
 
         speechRecognizer =
-            SpeechRecognizer.createSpeechRecognizer(this)
+            SpeechRecognizer.createSpeechRecognizer(
+                this
+            )
 
         speechRecognizer.setRecognitionListener(
-            object : RecognitionListener {
+
+            object :
+                RecognitionListener {
 
                 override fun onReadyForSpeech(
                     params: Bundle?
                 ) {
-                    setStatus("LISTENING")
                 }
 
                 override fun onBeginningOfSpeech() {
-                    setStatus("LISTENING")
                 }
 
                 override fun onRmsChanged(
                     rmsdB: Float
                 ) {
 
-                    val normalized =
-                        ((rmsdB + 2f) / 12f)
-                            .coerceIn(0f, 1f)
+                    val level =
+                        (
+                            (rmsdB + 2f) / 12f
+                        ).coerceIn(
+                            0f,
+                            1f
+                        )
 
-                    setRingLevel(normalized)
+                    setRingLevel(
+                        level
+                    )
                 }
 
                 override fun onBufferReceived(
@@ -324,14 +445,19 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onEndOfSpeech() {
-                    setStatus("PROCESSING")
+
+                    setStatus(
+                        "PROCESSING"
+                    )
                 }
 
                 override fun onError(
                     error: Int
                 ) {
 
-                    setStatus("STANDBY")
+                    setStatus(
+                        "STANDBY"
+                    )
 
                     appendLog(
                         "Kaizen",
@@ -350,12 +476,13 @@ class MainActivity : AppCompatActivity() {
                             )
                             ?.firstOrNull()
 
-                    if (!text.isNullOrBlank()) {
+                    if (
+                        !text.isNullOrBlank()
+                    ) {
 
-                        handleCommand(text)
-                    } else {
-
-                        setStatus("STANDBY")
+                        handleCommand(
+                            text
+                        )
                     }
                 }
 
@@ -388,6 +515,10 @@ class MainActivity : AppCompatActivity() {
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
 
+                respond(
+                    "I need microphone permission first, ma'am."
+                )
+
                 permissionLauncher.launch(
                     arrayOf(
                         Manifest.permission.RECORD_AUDIO
@@ -397,47 +528,51 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            try {
+            setStatus(
+                "LISTENING"
+            )
 
-                setStatus("LISTENING")
+            try {
 
                 speechRecognizer.startListening(
                     recognizerIntent
                 )
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
 
-                Log.e(
-                    "KAIZEN",
-                    "Speech recognizer error",
-                    e
+                setStatus(
+                    "STANDBY"
                 )
-
-                setStatus("STANDBY")
             }
         }
 
         binding.sendButton.setOnClickListener {
 
             val text =
-                binding.inputField.text
+                binding.inputField
+                    .text
                     .toString()
                     .trim()
 
             binding.inputField.setText("")
 
-            if (text.isNotBlank()) {
+            if (
+                text.isNotBlank()
+            ) {
 
-                handleCommand(text)
+                handleCommand(
+                    text
+                )
             }
         }
 
         binding.torchButton.setOnClickListener {
 
-            safeRespond {
-
-                Hardware.toggleTorch(this)
-            }
+            respond(
+                Hardware.toggleTorch(
+                    this
+                )
+            )
         }
 
         binding.locationButton.setOnClickListener {
@@ -447,21 +582,21 @@ class MainActivity : AppCompatActivity() {
 
         binding.btButton.setOnClickListener {
 
-            safeRespond {
-
+            respond(
                 Hardware.requestEnableBluetooth(
                     this,
                     enableBtLauncher
                 )
-            }
+            )
         }
 
         binding.wifiButton.setOnClickListener {
 
-            safeRespond {
-
-                Hardware.openWifiSettings(this)
-            }
+            respond(
+                Hardware.openWifiSettings(
+                    this
+                )
+            )
         }
 
         binding.calendarButton.setOnClickListener {
@@ -471,16 +606,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.cameraButton.setOnClickListener {
 
-            try {
-
-                takePictureLauncher.launch(null)
-
-            } catch (e: Exception) {
-
-                respond(
-                    "I couldn't open the camera, ma'am."
-                )
-            }
+            openCamera()
         }
 
         binding.settingsButton.setOnClickListener {
@@ -490,512 +616,414 @@ class MainActivity : AppCompatActivity() {
     }
 
     // =========================================================
-    // MAIN COMMAND HANDLER
+    // MAIN COMMAND ROUTER
     // =========================================================
 
-    private fun handleCommand(text: String) {
+    private fun handleCommand(
+        text: String
+    ) {
 
-        val cleanText =
+        val command =
             text.trim()
 
-        if (cleanText.isBlank()) {
+        if (
+            command.isBlank()
+        ) {
             return
         }
 
         appendLog(
             "You",
-            cleanText
+            command
         )
 
-        setStatus("PROCESSING")
-
-        val input =
-            cleanText
-                .lowercase(Locale.UK)
-                .replace(
-                    Regex("\\s+"),
-                    " "
-                )
-                .trim()
-
-        // -----------------------------------------------------
-        // MEMORY
-        // -----------------------------------------------------
-
-        val remember =
-            Regex(
-                "^remember that (.+?) is (.+)$",
-                RegexOption.IGNORE_CASE
-            ).find(cleanText)
-
-        if (remember != null) {
-
-            val key =
-                remember.groupValues[1].trim()
-
-            val value =
-                remember.groupValues[2].trim()
-
-            kaizenMemory.remember(
-                key,
-                value
-            )
-
-            respond(
-                "Understood, ma'am. I'll remember that $key is $value."
-            )
-
-            return
-        }
-
-        val rememberEquals =
-            Regex(
-                "^remember (.+?) = (.+)$",
-                RegexOption.IGNORE_CASE
-            ).find(cleanText)
-
-        if (rememberEquals != null) {
-
-            val key =
-                rememberEquals.groupValues[1].trim()
-
-            val value =
-                rememberEquals.groupValues[2].trim()
-
-            kaizenMemory.remember(
-                key,
-                value
-            )
-
-            respond(
-                "Understood, ma'am. I've stored that."
-            )
-
-            return
-        }
-
-        val recall =
-            Regex(
-                "^what do you remember about (.+)$",
-                RegexOption.IGNORE_CASE
-            ).find(cleanText)
-
-        if (recall != null) {
-
-            val key =
-                recall.groupValues[1].trim()
-
-            val value =
-                kaizenMemory.recall(key)
-
-            if (value != null) {
-
-                respond(
-                    "You told me that $key is $value, ma'am."
-                )
-
-            } else {
-
-                respond(
-                    "I don't have anything stored about $key yet, ma'am."
-                )
-            }
-
-            return
-        }
-
-        if (
-            input == "what do you remember" ||
-            input == "show my memories" ||
-            input == "what have you learned"
-        ) {
-
-            val memories =
-                kaizenMemory.all()
-
-            if (memories.isEmpty()) {
-
-                respond(
-                    "I haven't learned any personal information yet, ma'am."
-                )
-
-            } else {
-
-                val summary =
-                    memories.entries.joinToString(
-                        separator = ". "
-                    ) {
-                        "${it.key} is ${it.value}"
-                    }
-
-                respond(
-                    "Here's what I currently remember, ma'am: $summary."
-                )
-            }
-
-            return
-        }
-
-        if (
-            input == "forget everything" ||
-            input == "clear your memory" ||
-            input == "clear memory"
-        ) {
-
-            kaizenMemory.clear()
-
-            respond(
-                "My stored memory has been cleared, ma'am."
-            )
-
-            return
-        }
-
-        // -----------------------------------------------------
-        // BASIC CONVERSATION
-        // -----------------------------------------------------
-
-        if (
-            input == "hi" ||
-            input == "hello" ||
-            input == "hey" ||
-            input == "hello kaizen" ||
-            input == "hi kaizen" ||
-            input == "hey kaizen"
-        ) {
-
-            respond(
-                "Hello, ma'am. How may I assist you?"
-            )
-
-            return
-        }
-
-        if (
-            input.contains("good morning")
-        ) {
-
-            respond(
-                "Good morning, ma'am. How may I assist you today?"
-            )
-
-            return
-        }
-
-        if (
-            input.contains("good afternoon")
-        ) {
-
-            respond(
-                "Good afternoon, ma'am. How may I assist you?"
-            )
-
-            return
-        }
-
-        if (
-            input.contains("good evening")
-        ) {
-
-            respond(
-                "Good evening, ma'am. How may I assist you?"
-            )
-
-            return
-        }
-
-        if (
-            input == "who are you" ||
-            input == "what are you" ||
-            input.contains("tell me about yourself")
-        ) {
-
-            respond(
-                "I'm Kaizen, your personal assistant. I'm designed to help you with conversations, information and device tasks."
-            )
-
-            return
-        }
-
-        if (
-            input == "what can you do" ||
-            input == "what do you do" ||
-            input.contains("what are your capabilities")
-        ) {
-
-            respond(
-                "I can converse with you, remember information you teach me, perform calculations, open supported apps, work with Bluetooth, Wi-Fi, the camera, calendar and location, and use my online brain for more advanced questions."
-            )
-
-            return
-        }
-
-        if (
-            input.contains("how are you")
-        ) {
-
-            respond(
-                "I'm functioning normally, ma'am. All systems are standing by."
-            )
-
-            return
-        }
-
-        if (
-            input.contains("thank you") ||
-            input == "thanks"
-        ) {
-
-            respond(
-                "You're welcome, ma'am."
-            )
-
-            return
-        }
-
-        if (
-            input == "bye" ||
-            input == "goodbye"
-        ) {
-
-            respond(
-                "Very well, ma'am. I'll be here when you need me."
-            )
-
-            return
-        }
-
-        // -----------------------------------------------------
+        setStatus(
+            "PROCESSING"
+        )
+
+        // =====================================================
         // MATH
-        // -----------------------------------------------------
+        // =====================================================
 
         try {
 
-            if (MathEval.looksLikeMath(cleanText)) {
+            if (
+                MathEval.looksLikeMath(
+                    command
+                )
+            ) {
 
                 val result =
-                    MathEval.evaluate(cleanText)
+                    MathEval.evaluate(
+                        command
+                    )
 
-                if (result != null) {
+                if (
+                    result != null
+                ) {
 
                     val formatted =
                         if (
                             result ==
-                            result.toLong().toDouble()
+                            result.toLong()
+                                .toDouble()
                         ) {
+
                             result
                                 .toLong()
                                 .toString()
+
                         } else {
+
                             result.toString()
                         }
 
+                    val output =
+                        "$command = $formatted"
+
                     respond(
-                        "$cleanText = $formatted"
+                        output
                     )
 
                     return
                 }
             }
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
+        }
+
+        // =====================================================
+        // OPEN APPS
+        // =====================================================
+
+        val openMatch =
+            Regex(
+                "^open (.+)",
+                RegexOption.IGNORE_CASE
+            ).find(
+                command
+            )
+
+        if (
+            openMatch != null
+        ) {
+
+            val appName =
+                openMatch
+                    .groupValues[1]
+                    .trim()
+
+            try {
+
+                if (
+                    AppLauncher.tryLaunch(
+                        this,
+                        appName
+                    )
+                ) {
+
+                    respond(
+                        "Opening $appName, ma'am."
+                    )
+
+                    return
+                }
+
+            } catch (_: Exception) {
+            }
 
             respond(
-                "I couldn't calculate that safely, ma'am."
+                "I couldn't find an app called $appName, ma'am."
             )
 
             return
         }
 
-        // -----------------------------------------------------
-        // OPEN APPS
-        // -----------------------------------------------------
+        // =====================================================
+        // BLUETOOTH
+        // =====================================================
 
-                // 2. Local app launching — PackageManager only, no network.
-        Regex("^open (.+)", RegexOption.IGNORE_CASE).find(text)?.let { m ->
-            val appName = m.groupValues[1].trim()
+        if (
+            Regex(
+                "^(turn off|disable) (the )?bluetooth",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
-            if (AppLauncher.tryLaunch(this, appName)) {
-                val out = "Opening $appName, ma'am."
-                appendLog("Kaizen", out)
-                speak(out)
-                setStatus("STANDBY")
-                return
-            } else {
-                val out = "I couldn't find an app called $appName, ma'am."
-                appendLog("Kaizen", out)
-                speak(out)
-                setStatus("STANDBY")
-                return
-            }
-        }
-
-        // 3. Local dialer — opens the phone app with the number ready.
-        Regex("^call (.+)", RegexOption.IGNORE_CASE).find(text)?.let { m ->
-            val number = m.groupValues[1].trim()
-
-            try {
-                startActivity(
-                    Intent(
-                        Intent.ACTION_DIAL,
-                        Uri.parse("tel:$number")
-                    )
+            val output =
+                Hardware.openBluetoothSettingsForOff(
+                    this
                 )
 
-                val out = "Dialer ready for $number, ma'am."
-                appendLog("Kaizen", out)
-                speak(out)
-                setStatus("STANDBY")
-            } catch (e: Exception) {
-                val out = "I couldn't open the dialer, ma'am."
-                appendLog("Kaizen", out)
-                speak(out)
-                setStatus("STANDBY")
-            }
+            respond(
+                output
+            )
 
             return
         }
 
-        // 4. Bluetooth commands.
-        Regex(
-            "^(turn off|disable) (the )?bluetooth",
-            RegexOption.IGNORE_CASE
-        ).find(text)?.let {
+        if (
+            Regex(
+                "^(turn on|enable|check) (the )?bluetooth",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
-            val out =
-                Hardware.openBluetoothSettingsForOff(this)
-
-            appendLog("Kaizen", out)
-            speak(out)
-            setStatus("STANDBY")
-            return
-        }
-
-        Regex(
-            "^(turn on|enable|check) (the )?bluetooth",
-            RegexOption.IGNORE_CASE
-        ).find(text)?.let {
-
-            val out =
+            val output =
                 Hardware.requestEnableBluetooth(
                     this,
                     enableBtLauncher
                 )
 
-            appendLog("Kaizen", out)
-            speak(out)
-            setStatus("STANDBY")
+            respond(
+                output
+            )
+
             return
         }
 
-        // 5. Wi-Fi commands.
-        Regex(
-            "^(turn on|turn off|enable|disable|check|toggle) (the )?wi-?fi",
-            RegexOption.IGNORE_CASE
-        ).find(text)?.let {
+        // =====================================================
+        // WI-FI
+        // =====================================================
 
-            val out =
-                Hardware.openWifiSettings(this)
+        if (
+            Regex(
+                "^(turn on|turn off|enable|disable|check|toggle) (the )?wi-?fi",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
-            appendLog("Kaizen", out)
-            speak(out)
-            setStatus("STANDBY")
+            respond(
+                Hardware.openWifiSettings(
+                    this
+                )
+            )
+
             return
         }
 
-        // 6. Torch / flashlight commands.
-        Regex(
-            "^(turn on|turn off|toggle) (the )?(torch|flashlight)",
-            RegexOption.IGNORE_CASE
-        ).find(text)?.let {
+        // =====================================================
+        // TORCH
+        // =====================================================
 
-            val out =
-                Hardware.toggleTorch(this)
+        if (
+            Regex(
+                "^(turn on|turn off|toggle) (the )?(torch|flashlight)",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
-            appendLog("Kaizen", out)
-            speak(out)
-            setStatus("STANDBY")
+            respond(
+                Hardware.toggleTorch(
+                    this
+                )
+            )
+
             return
         }
 
-        // 7. Calendar commands.
-        Regex(
-            "^(add|create|schedule|set) (a |an )?(calendar )?event",
-            RegexOption.IGNORE_CASE
-        ).find(text)?.let {
+        // =====================================================
+        // CAMERA
+        // =====================================================
 
-            showAddEventDialog()
-            setStatus("STANDBY")
+        if (
+            Regex(
+                "^(open|start|use|activate|take) (the )?(camera|camera app|a picture|photo)",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
+
+            openCamera()
+
             return
         }
 
-        // 8. Location commands.
-        Regex(
-            "^(where am i|check my location|get my location|find my location)",
-            RegexOption.IGNORE_CASE
-        ).find(text)?.let {
+        // =====================================================
+        // LOCATION
+        // =====================================================
+
+        if (
+            Regex(
+                "^(where am i|check my location|get my location|find my location|what is my location)",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
             fetchLocation()
-            setStatus("STANDBY")
+
             return
         }
 
-        // 9. Local conversation replies.
-        LocalReplies.tryReply(text)?.let { reply ->
+        // =====================================================
+        // CALENDAR
+        // =====================================================
 
-            appendLog("Kaizen", reply)
-            speak(reply)
-            setStatus("STANDBY")
+        if (
+            Regex(
+                "^(add|create|schedule|set) (a |an )?(calendar )?event",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
+
+            showAddEventDialog()
+
             return
         }
 
-        // 10. If Kaizen doesn't know the command locally,
-        // send it to the cloud brain.
-        if (!NetworkUtils.isOnline(this)) {
+        // =====================================================
+        // SETTINGS
+        // =====================================================
 
-            val out =
-                "I need a connection for that, ma'am — " +
-                "I've brought up your network settings."
+        if (
+            Regex(
+                "^(open|show) (the )?settings",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
-            appendLog("Kaizen", out)
-            speak(out)
-            setStatus("STANDBY")
+            try {
+
+                startActivity(
+                    Intent(
+                        Settings.ACTION_SETTINGS
+                    )
+                )
+
+                respond(
+                    "Opening settings, ma'am."
+                )
+
+            } catch (_: Exception) {
+
+                respond(
+                    "I couldn't open settings, ma'am."
+                )
+            }
+
+            return
+        }
+
+        // =====================================================
+        // INTERNET SETTINGS
+        // =====================================================
+
+        if (
+            Regex(
+                "^(open|show) (the )?(internet|network|connection) settings",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(
+                command
+            )
+        ) {
 
             openConnectivitySettings()
+
+            respond(
+                "Opening network settings, ma'am."
+            )
+
             return
         }
 
-        // 11. Check for Claude API key.
+        // =====================================================
+        // LOCAL CONVERSATION
+        // =====================================================
+
+        try {
+
+            LocalReplies
+                .tryReply(command)
+                ?.let { reply ->
+
+                    respond(
+                        reply
+                    )
+
+                    return
+                }
+
+        } catch (_: Exception) {
+        }
+
+        // =====================================================
+        // CLOUD BRAIN
+        // =====================================================
+
+        if (
+            !NetworkUtils.isOnline(
+                this
+            )
+        ) {
+
+            respond(
+                "I need an internet connection for that, ma'am. I've opened your network settings."
+            )
+
+            openConnectivitySettings()
+
+            return
+        }
+
         val apiKey =
-            SecurePrefs.getApiKey(this)
+            SecurePrefs.getApiKey(
+                this
+            )
 
-        if (apiKey.isNullOrBlank()) {
+        if (
+            apiKey.isNullOrBlank()
+        ) {
 
-            val out =
-                "I don't have an API key yet, ma'am — " +
-                "tap the gear icon to add one."
+            respond(
+                "I don't have an API key yet, ma'am. Tap the gear icon to add one."
+            )
 
-            appendLog("Kaizen", out)
-            speak(out)
-            setStatus("STANDBY")
             return
         }
 
-        // 12. Send the conversation to Claude.
         val locationNote =
-            if (userLat != null) {
-                "\n\n[context: current coordinates $userLat, $userLon]"
+            if (
+                userLat != null &&
+                userLon != null
+            ) {
+
+                "\n\n[Current location: $userLat, $userLon]"
+
             } else {
+
                 ""
             }
 
         conversation.add(
-            "user" to (text + locationNote)
+            "user" to
+                (
+                    command +
+                        locationNote
+                    )
         )
 
-        setStatus("THINKING")
+        setStatus(
+            "THINKING"
+        )
 
-        CoroutineScope(Dispatchers.Main).launch {
+        CoroutineScope(
+            Dispatchers.Main
+        ).launch {
 
             try {
 
@@ -1006,31 +1034,558 @@ class MainActivity : AppCompatActivity() {
                     )
 
                 conversation.add(
-                    "assistant" to reply
+                    "assistant" to
+                        reply
                 )
 
-                appendLog(
-                    "Kaizen",
+                respond(
                     reply
                 )
 
-                speak(reply)
+            } catch (
+                e: Exception
+            ) {
 
-                setStatus("STANDBY")
-
-            } catch (e: Exception) {
-
-                val out =
-                    "I'm sorry, ma'am. " +
-                    "I couldn't process that request right now."
-
-                appendLog(
-                    "Kaizen",
-                    out
+                respond(
+                    "I'm having trouble reaching my cloud brain, ma'am."
                 )
-
-                speak(out)
-
-                setStatus("STANDBY")
             }
         }
+    }
+
+    // =========================================================
+    // RESPONSE
+    // =========================================================
+
+    private fun respond(
+        text: String
+    ) {
+
+        appendLog(
+            "Kaizen",
+            text
+        )
+
+        speak(
+            text
+        )
+
+        setStatus(
+            "STANDBY"
+        )
+    }
+
+    // =========================================================
+    // LOG
+    // =========================================================
+
+    private fun appendLog(
+        who: String,
+        text: String
+    ) {
+
+        runOnUiThread {
+
+            try {
+
+                binding.logText.append(
+                    "\n$who: $text\n"
+                )
+
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    // =========================================================
+    // CAMERA
+    // =========================================================
+
+    private fun openCamera() {
+
+        if (
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+
+            respond(
+                "I need camera permission first, ma'am."
+            )
+
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.CAMERA
+                )
+            )
+
+            return
+        }
+
+        try {
+
+            setStatus(
+                "PROCESSING"
+            )
+
+            takePictureLauncher.launch(
+                null
+            )
+
+        } catch (_: Exception) {
+
+            respond(
+                "I couldn't open the camera, ma'am."
+            )
+        }
+    }
+
+    // =========================================================
+    // IMAGE ANALYSIS
+    // =========================================================
+
+    private fun analyzeImage(
+        bitmap: Bitmap
+    ) {
+
+        if (
+            !NetworkUtils.isOnline(
+                this
+            )
+        ) {
+
+            respond(
+                "Vision needs an internet connection, ma'am."
+            )
+
+            openConnectivitySettings()
+
+            return
+        }
+
+        val apiKey =
+            SecurePrefs.getApiKey(
+                this
+            )
+
+        if (
+            apiKey.isNullOrBlank()
+        ) {
+
+            respond(
+                "I need an API key before I can analyze the image, ma'am."
+            )
+
+            return
+        }
+
+        try {
+
+            val stream =
+                ByteArrayOutputStream()
+
+            bitmap.compress(
+                Bitmap.CompressFormat.JPEG,
+                85,
+                stream
+            )
+
+            val base64 =
+                Base64.encodeToString(
+                    stream.toByteArray(),
+                    Base64.NO_WRAP
+                )
+
+            appendLog(
+                "You",
+                "[Camera image sent to Kaizen]"
+            )
+
+            setStatus(
+                "ANALYZING"
+            )
+
+            CoroutineScope(
+                Dispatchers.Main
+            ).launch {
+
+                try {
+
+                    val reply =
+                        ClaudeClient.askVision(
+                            base64,
+                            apiKey
+                        )
+
+                    respond(
+                        reply
+                    )
+
+                } catch (_: Exception) {
+
+                    respond(
+                        "I couldn't analyze that image, ma'am."
+                    )
+                }
+            }
+
+        } catch (_: Exception) {
+
+            respond(
+                "I couldn't prepare the camera image, ma'am."
+            )
+        }
+    }
+
+    // =========================================================
+    // LOCATION
+    // =========================================================
+
+    private fun fetchLocation() {
+
+        if (
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+
+            respond(
+                "Location permission isn't granted yet, ma'am."
+            )
+
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            )
+
+            return
+        }
+
+        val locationManager =
+            getSystemService(
+                Context.LOCATION_SERVICE
+            ) as LocationManager
+
+        setStatus(
+            "PROCESSING"
+        )
+
+        try {
+
+            locationManager.requestSingleUpdate(
+                LocationManager.GPS_PROVIDER,
+
+                { location: Location ->
+
+                    userLat =
+                        location.latitude
+
+                    userLon =
+                        location.longitude
+
+                    respond(
+                        "Location locked, ma'am. Latitude ${location.latitude}, longitude ${location.longitude}."
+                    )
+                },
+
+                null
+            )
+
+        } catch (_: Exception) {
+
+            respond(
+                "I couldn't get a location fix, ma'am."
+            )
+        }
+    }
+
+    // =========================================================
+    // NETWORK SETTINGS
+    // =========================================================
+
+    private fun openConnectivitySettings() {
+
+        try {
+
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.Q
+            ) {
+
+                startActivity(
+                    Intent(
+                        Settings.Panel.ACTION_INTERNET_CONNECTIVITY
+                    )
+                )
+
+            } else {
+
+                startActivity(
+                    Intent(
+                        Settings.ACTION_WIRELESS_SETTINGS
+                    )
+                )
+            }
+
+        } catch (_: Exception) {
+
+            try {
+
+                startActivity(
+                    Intent(
+                        Settings.ACTION_WIRELESS_SETTINGS
+                    )
+                )
+
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    // =========================================================
+    // CALENDAR
+    // =========================================================
+
+    private fun showAddEventDialog() {
+
+        val titleInput =
+            EditText(this)
+
+        titleInput.hint =
+            "Event title"
+
+        AlertDialog.Builder(
+            this
+        )
+            .setTitle(
+                "Event title"
+            )
+            .setView(
+                titleInput
+            )
+            .setPositiveButton(
+                "Next"
+            ) { _, _ ->
+
+                val title =
+                    titleInput.text
+                        .toString()
+                        .trim()
+
+                if (
+                    title.isBlank()
+                ) {
+
+                    respond(
+                        "I need an event title, ma'am."
+                    )
+
+                    return@setPositiveButton
+                }
+
+                val calendar =
+                    Calendar.getInstance()
+
+                DatePickerDialog(
+                    this,
+
+                    { _, year, month, day ->
+
+                        calendar.set(
+                            year,
+                            month,
+                            day
+                        )
+
+                        TimePickerDialog(
+                            this,
+
+                            { _, hour, minute ->
+
+                                calendar.set(
+                                    Calendar.HOUR_OF_DAY,
+                                    hour
+                                )
+
+                                calendar.set(
+                                    Calendar.MINUTE,
+                                    minute
+                                )
+
+                                try {
+
+                                    val intent =
+                                        Intent(
+                                            Intent.ACTION_INSERT
+                                        )
+
+                                    intent.data =
+                                        CalendarContract
+                                            .Events
+                                            .CONTENT_URI
+
+                                    intent.putExtra(
+                                        CalendarContract
+                                            .Events
+                                            .TITLE,
+                                        title
+                                    )
+
+                                    intent.putExtra(
+                                        CalendarContract
+                                            .EXTRA_EVENT_BEGIN_TIME,
+                                        calendar.timeInMillis
+                                    )
+
+                                    startActivity(
+                                        intent
+                                    )
+
+                                    respond(
+                                        "Opening the calendar for $title, ma'am."
+                                    )
+
+                                } catch (_: Exception) {
+
+                                    respond(
+                                        "I couldn't open the calendar, ma'am."
+                                    )
+                                }
+
+                            },
+
+                            calendar.get(
+                                Calendar.HOUR_OF_DAY
+                            ),
+
+                            calendar.get(
+                                Calendar.MINUTE
+                            ),
+
+                            true
+
+                        ).show()
+                    },
+
+                    calendar.get(
+                        Calendar.YEAR
+                    ),
+
+                    calendar.get(
+                        Calendar.MONTH
+                    ),
+
+                    calendar.get(
+                        Calendar.DAY_OF_MONTH
+                    )
+
+                ).show()
+            }
+            .setNegativeButton(
+                "Cancel",
+                null
+            )
+            .show()
+    }
+
+    // =========================================================
+    // API KEY
+    // =========================================================
+
+    private fun showApiKeyDialog() {
+
+        val input =
+            EditText(this)
+
+        input.hint =
+            "sk-ant-..."
+
+        AlertDialog.Builder(
+            this
+        )
+            .setTitle(
+                "Anthropic API key"
+            )
+            .setView(
+                input
+            )
+            .setPositiveButton(
+                "Save"
+            ) { _, _ ->
+
+                val key =
+                    input.text
+                        .toString()
+                        .trim()
+
+                if (
+                    key.isBlank()
+                ) {
+
+                    Toast.makeText(
+                        this,
+                        "No API key entered.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return@setPositiveButton
+                }
+
+                SecurePrefs.setApiKey(
+                    this,
+                    key
+                )
+
+                Toast.makeText(
+                    this,
+                    "API key saved.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .setNegativeButton(
+                "Cancel",
+                null
+            )
+            .show()
+    }
+
+    // =========================================================
+    // CLEANUP
+    // =========================================================
+
+    override fun onDestroy() {
+
+        stopSpeakingPulse()
+
+        if (
+            ::tts.isInitialized
+        ) {
+
+            try {
+
+                tts.stop()
+                tts.shutdown()
+
+            } catch (_: Exception) {
+            }
+        }
+
+        if (
+            ::speechRecognizer.isInitialized
+        ) {
+
+            try {
+
+                speechRecognizer.cancel()
+                speechRecognizer.destroy()
+
+            } catch (_: Exception) {
+            }
+        }
+
+        super.onDestroy()
+    }
+}
