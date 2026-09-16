@@ -297,15 +297,14 @@ class MainActivity : AppCompatActivity() {
                             @Deprecated(
                                 "Deprecated in Java"
                             )
-                            override fun onError(
-                                utteranceId: String?
-                            ) {
-
-                                runOnUiThread {
-
-                                    setStatus(
-                                        "STANDBY"
-                                         stopSpeakingPulse()
+                            override fun onDone(
+    utteranceId: String?
+) {
+    runOnUiThread {
+        setStatus("STANDBY")
+        stopSpeakingPulse()
+    }
+                            }
                                 }
                             }
                         }
