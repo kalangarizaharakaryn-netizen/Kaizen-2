@@ -1,4 +1,4 @@
-package com.example.kaizen
+package com.kaizen.assistant
 
 import android.content.Context
 import org.json.JSONArray
