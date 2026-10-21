@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -5,32 +6,46 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- outer glow halo -->
+    <!-- Transparent background -->
+
+    <!-- Outer turquoise glow -->
     <path
-        android:pathData="M40,30 L40,78 M40,55 L72,30 M40,55 L72,78"
+        android:pathData="M54,12 A42,42 0,1 1,53.9 12"
         android:strokeColor="#4FD8FF"
-        android:strokeAlpha="0.18"
-        android:strokeWidth="24"
+        android:strokeAlpha="0.25"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"/>
+
+    <!-- Inner futuristic circle -->
+    <path
+        android:pathData="M54,23 A31,31 0,1 1,53.9 23"
+        android:strokeColor="#4FD8FF"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"/>
+
+    <!-- HUD circuit details -->
+    <path
+        android:pathData="M54,8 L54,17 M54,91 L54,100 M8,54 L17,54 M91,54 L100,54"
+        android:strokeColor="#4FD8FF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"/>
+
+    <!-- Stylized K -->
+    <path
+        android:pathData="M34,29 L34,79 M34,54 L68,30 M43,48 L72,79"
+        android:strokeColor="#4FD8FF"
+        android:strokeWidth="8"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:fillColor="#00000000"/>
 
-    <!-- mid glow halo -->
+    <!-- Central AI node -->
     <path
-        android:pathData="M40,30 L40,78 M40,55 L72,30 M40,55 L72,78"
-        android:strokeColor="#4FD8FF"
-        android:strokeAlpha="0.4"
-        android:strokeWidth="15"
+        android:pathData="M75,20 L75,28 M71,24 L79,24"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
         android:fillColor="#00000000"/>
 
-    <!-- solid K -->
-    <path
-        android:pathData="M40,30 L40,78 M40,55 L72,30 M40,55 L72,78"
-        android:strokeColor="#4FD8FF"
-        android:strokeWidth="9"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000"/>
 </vector>
