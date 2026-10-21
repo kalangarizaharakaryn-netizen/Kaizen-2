@@ -6,46 +6,33 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Transparent background -->
-
-    <!-- Outer turquoise glow -->
     <path
-        android:pathData="M54,12 A42,42 0,1 1,53.9 12"
-        android:strokeColor="#4FD8FF"
-        android:strokeAlpha="0.25"
-        android:strokeWidth="2"
-        android:fillColor="#00000000"/>
-
-    <!-- Inner futuristic circle -->
-    <path
-        android:pathData="M54,23 A31,31 0,1 1,53.9 23"
-        android:strokeColor="#4FD8FF"
-        android:strokeWidth="1.5"
-        android:fillColor="#00000000"/>
-
-    <!-- HUD circuit details -->
-    <path
-        android:pathData="M54,8 L54,17 M54,91 L54,100 M8,54 L17,54 M91,54 L100,54"
-        android:strokeColor="#4FD8FF"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"/>
-
-    <!-- Stylized K -->
-    <path
-        android:pathData="M34,29 L34,79 M34,54 L68,30 M43,48 L72,79"
-        android:strokeColor="#4FD8FF"
-        android:strokeWidth="8"
+        android:fillColor="#00000000"
+        android:strokeColor="#40E0D0"
+        android:strokeWidth="2.5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:fillColor="#00000000"/>
+        android:pathData="M54,10 A44,44 0,1 0,54 98 A44,44 0,1 0,54 10 Z" />
 
-    <!-- Central AI node -->
     <path
-        android:pathData="M75,20 L75,28 M71,24 L79,24"
-        android:strokeColor="#FFFFFF"
+        android:fillColor="#00000000"
+        android:strokeColor="#40E0D0"
         android:strokeWidth="2"
+        android:pathData="M54,20 L54,35 M54,73 L54,88 M20,54 L35,54 M73,54 L88,54" />
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#40E0D0"
+        android:strokeWidth="2.5"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"/>
+        android:pathData="M38,43 L38,65 L54,76 L70,65 L70,43 L54,32 Z" />
+
+    <path
+        android:fillColor="#40E0D0"
+        android:pathData="M54,41 L63,54 L54,67 L45,54 Z" />
+
+    <path
+        android:fillColor="#40E0D0"
+        android:pathData="M52,50 L56,50 L56,58 L52,58 Z" />
 
 </vector>
